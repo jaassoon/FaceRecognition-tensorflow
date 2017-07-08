@@ -68,16 +68,15 @@ num_batch = len(train_x) // batch_size
 x = tf.placeholder(tf.float32, [None, size, size, 3])
 y_ = tf.placeholder(tf.float32, [None, 2])
 
+# keep_prob_5:0.5,keep_prob_75:0.75 保留概率
 keep_prob_5 = tf.placeholder(tf.float32)
 keep_prob_75 = tf.placeholder(tf.float32)
 
 def weightVariable(shape):
-    init = tf.random_normal(shape, stddev=0.01)
-    return tf.Variable(init)
+    return tf.Variable(tf.random_normal(shape, stddev=0.01)) # 按正态分布的随机值
 
 def biasVariable(shape):
-    init = tf.random_normal(shape)
-    return tf.Variable(init)
+    return tf.Variable(tf.random_normal(shape)) # 按正态分布的随机值
 
 def conv2d(x, W):
     return tf.nn.conv2d(x, W, strides=[1,1,1,1], padding='SAME')
@@ -89,12 +88,13 @@ def dropout(x, keep):
     return tf.nn.dropout(x, keep)
 
 def cnnLayer():
-    # 第一层
+    # 第一层 输入通道3 红蓝绿； 输出通道32: 产生32个特征值
+    # W1 定义滤波器 3*3矩阵
     W1 = weightVariable([3,3,3,32]) # 卷积核大小(3,3)， 输入通道(3)， 输出通道(32)
     b1 = biasVariable([32])
     # 卷积
     conv1 = tf.nn.relu(conv2d(x, W1) + b1)
-    # 池化
+    # 池化 
     pool1 = maxPool(conv1)
     # 减少过拟合，随机让某些权重不更新
     drop1 = dropout(pool1, keep_prob_5)
@@ -113,14 +113,14 @@ def cnnLayer():
     pool3 = maxPool(conv3)
     drop3 = dropout(pool3, keep_prob_5)
 
-    # 全连接层
+    # 全连接层 8*8矩阵64组；
     Wf = weightVariable([8*8*64, 512])
     bf = biasVariable([512])
     drop3_flat = tf.reshape(drop3, [-1, 8*8*64])
     dense = tf.nn.relu(tf.matmul(drop3_flat, Wf) + bf)
     dropf = dropout(dense, keep_prob_75)
 
-    # 输出层
+    # 输出层 512个输入，产生2个输出
     Wout = weightVariable([512,2])
     bout = weightVariable([2])
     #out = tf.matmul(dropf, Wout) + bout
@@ -129,9 +129,10 @@ def cnnLayer():
 
 def cnnTrain():
     out = cnnLayer()
-
+    # 交叉熵 
     cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=out, labels=y_))
-
+    
+    # AdamOptimizer可能优于RMSPropOptimizer算法 
     train_step = tf.train.AdamOptimizer(0.01).minimize(cross_entropy)
     # 比较标签是否相等，再求的所有数的平均值，tf.cast(强制转换类型)
     accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(out, 1), tf.argmax(y_, 1)), tf.float32))
